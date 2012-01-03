@@ -1,0 +1,4 @@
+#[link(name = "clang",
+       vers = "0.1",
+       uuid = "164b90a7-4c78-4bbf-a3fa-b0f8a0360a6c")];
+#[crate_type = "lib"];

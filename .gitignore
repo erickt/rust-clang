@@ -1,0 +1,7 @@
+*.sw[po]
+*.o
+*.a
+*.bc
+*.ll
+*.dSYM
+clang
