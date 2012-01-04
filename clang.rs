@@ -12,18 +12,18 @@ native mod clang {
 
     fn clang_getFileName(SFile: CXFile) -> CXString;
 
-    fn clang_createIndex(excludeDeclarationsFromPCH: int,
-                         displayDiagnostics: int) -> CXIndex;
+    fn clang_createIndex(excludeDeclarationsFromPCH: ctypes::c_int,
+                         displayDiagnostics: ctypes::c_int) -> CXIndex;
     fn clang_disposeIndex(index: CXIndex);
 
     fn clang_parseTranslationUnit(
         CIdx: CXIndex,
         source_filename: sbuf,
         command_line_args: *sbuf,
-        num_command_line_args: int,
+        num_command_line_args: ctypes::c_int,
         unsaved_files: *CXUnsavedFile,
-        num_unsaved_files: uint,
-        options: uint) -> CXTranslationUnit;
+        num_unsaved_files: ctypes::unsigned,
+        options: ctypes::unsigned) -> CXTranslationUnit;
 
     fn clang_disposeTranslationUnit(tu: CXTranslationUnit);
 
@@ -34,13 +34,13 @@ native mod clang {
 native mod rustclang {
     fn rustclang_getInclusions(tu: CXTranslationUnit,
                                &inclusions: *_file_inclusion,
-                               &len: uint);
+                               &len: ctypes::unsigned);
 
     fn rustclang_getExpansionLocation(location: CXSourceLocation,
                                       &file: CXFile,
-                                      &line: u32,
-                                      &column: u32,
-                                      &offset: u32);
+                                      &line: ctypes::unsigned,
+                                      &column: ctypes::unsigned,
+                                      &offset: ctypes::unsigned);
 
 }
 
@@ -53,7 +53,7 @@ native mod libc {
 
 type CXString = {
     data: *ctypes::void,
-    private_flags: uint
+    private_flags: ctypes::unsigned,
 };
 
 type string = obj {
@@ -82,7 +82,7 @@ type CXSourceLocation = {
     // Hopefully we won't run into alignment issues in the meantime.
     ptr_data0: *ctypes::void,
     ptr_data1: *ctypes::void,
-    int_data: u32,
+    int_data: ctypes::unsigned,
 };
 
 type expansion = {
@@ -208,9 +208,10 @@ fn new_translation_unit(tu: CXTranslationUnit) -> translation_unit {
             // Instead we'll make a vector in our stub library and copy the
             // values from it.
 
-            let len = 0u;
+            let len = 0u as ctypes::unsigned;
             let inclusions = ptr::null::<_file_inclusion>();
             rustclang::rustclang_getInclusions(*tu, inclusions, len);
+            let len = len as uint;
 
             let cv = c_vec::create(
                 unsafe::reinterpret_cast(inclusions),
@@ -240,8 +241,9 @@ type index = obj {
 
 fn index(excludeDecls: bool) -> index {
     let excludeDeclarationsFromPCH = if excludeDecls { 1 } else { 0 };
-    let index = clang::clang_createIndex(excludeDeclarationsFromPCH, 0);
-
+    let index = clang::clang_createIndex(
+        excludeDeclarationsFromPCH as ctypes::c_int,
+        0 as ctypes::c_int);
 
     // CXIndex wrapper.
     resource index_res(index: CXIndex) {
@@ -269,10 +271,10 @@ fn index(excludeDecls: bool) -> index {
                         *index,
                         str::as_buf(*path, { |buf| buf }),
                         vec::to_ptr(argv),
-                        vec::len(argv) as int,
+                        vec::len(argv) as ctypes::c_int,
                         vec::to_ptr(unsaved_files),
-                        vec::len(unsaved_files),
-                        options)
+                        vec::len(unsaved_files) as ctypes::unsigned,
+                        options as ctypes::unsigned)
                 };
 
             new_translation_unit(tu)
