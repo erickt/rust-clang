@@ -19,7 +19,7 @@ static void getInclusions(CXFile included_file,
                           CXSourceLocation* inclusion_stack,
                           unsigned include_len,
                           void* data) {
-  if (include_len == 1) { // != 0) {
+  if (include_len != 0) {
     file_inclusions* inc = (file_inclusions*)data;
     unsigned i = inc->len;
     void* tmp;
@@ -34,8 +34,6 @@ static void getInclusions(CXFile included_file,
     CXSourceLocation* location = inclusion_stack;
     inc->inclusions[i].location = inclusion_stack[0];
     inc->inclusions[i].depth = include_len;
-
-    //printf("inc: %p %p %u\n", location->ptr_data[0], location->ptr_data[1], location->int_data);
   }
 }
 

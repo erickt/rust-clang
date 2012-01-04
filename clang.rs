@@ -1,6 +1,7 @@
 use std;
 import str::sbuf;
 import std::c_vec;
+import std::io::{println};
 
 // ---------------------------------------------------------------------------
 
@@ -107,8 +108,12 @@ obj new_source_location(location: CXSourceLocation) {
                 column,
                 offset);
 
-        { file: new_file(file),
-          line: line as uint, column: column as uint, offset: offset as uint }
+        {
+            file: new_file(file),
+            line: line as uint,
+            column: column as uint,
+            offset: offset as uint,
+        }
     }
 
     fn to_str() -> str {
@@ -283,12 +288,13 @@ mod tests {
     fn test() unsafe {
         let index = index(false);
         let tu = index.parse("foo.c", [], [], 0u);
-        log(error, "");
-        log(error, tu.spelling().to_str());
+        println("");
+        println(#fmt("spelling: %s", tu.spelling().to_str()));
 
         vec::iter(tu.inclusions(), {|inc|
-            log(error, inc.included_file.filename().to_str());
-            log(error, inc.location.to_str());
+            println(#fmt("included_file: %s %s",
+                inc.included_file.filename().to_str(),
+                inc.location.to_str()));
         });
     }
 }
