@@ -68,7 +68,7 @@ fn new_string(string: CXString) -> string {
 
     obj string_obj(string: string_res) {
         fn to_str() -> str unsafe {
-            str::str_from_cstr(clang::clang_getCString(*string))
+            str::from_cstr(clang::clang_getCString(*string))
         }
     }
 
