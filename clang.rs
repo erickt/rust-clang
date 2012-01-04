@@ -1,7 +1,7 @@
 use std;
 import str::sbuf;
 import std::c_vec;
-import std::io::{println};
+import std::io::{print, println};
 
 // ---------------------------------------------------------------------------
 
@@ -28,6 +28,8 @@ native mod clang {
     fn clang_disposeTranslationUnit(tu: CXTranslationUnit);
 
     fn clang_getTranslationUnitSpelling(tu: CXTranslationUnit) -> CXString;
+
+    fn clang_getTranslationUnitCursor(tu: CXTranslationUnit) -> CXCursor;
 }
 
 #[link_args = "-L."]
@@ -42,6 +44,14 @@ native mod rustclang {
                                       &column: ctypes::unsigned,
                                       &offset: ctypes::unsigned);
 
+    // Work around bug #1402.
+    fn rustclang_getCursorKind(cursor: CXCursor) -> ctypes::enum;
+    fn rustclang_getCursorSpelling(cursor: CXCursor) -> CXString;
+    fn rustclang_getCursorDisplayName(cursor: CXCursor) -> CXString;
+
+    fn rustclang_visitChildren(parent: CXCursor,
+                               &children: *CXCursor,
+                               &len: ctypes::unsigned);
 }
 
 #[nolink]
@@ -174,6 +184,61 @@ fn new_file_inclusion(fu: _file_inclusion) -> file_inclusion {
 
 // ---------------------------------------------------------------------------
 
+type CXCursor = {
+    kind: ctypes::enum,
+    xdata: ctypes::c_int,
+    data0: *ctypes::void,
+    data1: *ctypes::void,
+    data2: *ctypes::void
+};
+
+// It sure would be nice if rust's objects supported recursive types. In the
+// meantime, break up the recursion by inserting a tag into the chain.
+tag cursor_tag = cursor;
+
+type cursor = obj {
+    fn kind() -> uint;
+    fn spelling() -> string;
+    fn display_name() -> string;
+    fn children() -> [cursor_tag];
+};
+
+obj new_cursor(cursor: CXCursor) {
+    fn kind() -> uint {
+        rustclang::rustclang_getCursorKind(cursor) as uint
+    }
+
+    fn spelling() -> string {
+        new_string(rustclang::rustclang_getCursorSpelling(cursor))
+    }
+
+    fn display_name() -> string {
+        new_string(rustclang::rustclang_getCursorDisplayName(cursor))
+    }
+
+    fn children() -> [cursor_tag] unsafe {
+        let len = 0u as ctypes::unsigned;
+        let children = ptr::null::<CXCursor>();
+        rustclang::rustclang_visitChildren(cursor, children, len);
+        let len = len as uint;
+
+        let cv = c_vec::create(
+            unsafe::reinterpret_cast(children),
+            len);
+
+        let v = vec::init_fn({|i|
+            cursor_tag(new_cursor(c_vec::get(cv, i)))
+        }, len);
+
+        // llvm handles cleaning up the inclusions for us, so we can
+        // just let them leak.
+
+        v
+    }
+}
+
+// ---------------------------------------------------------------------------
+
 type CXTranslationUnit = *ctypes::void;
 
 const CXTranslationUnit_None : uint = 0x0u;
@@ -189,6 +254,7 @@ const CXTranslationUnit_NestedMacroInstantiations : uint = 0x40u;
 type translation_unit = obj {
     fn spelling() -> string;
     fn inclusions() -> [file_inclusion];
+    fn cursor() -> cursor;
 };
 
 // CXTranslationUnit wrapper.
@@ -225,6 +291,10 @@ fn new_translation_unit(tu: CXTranslationUnit) -> translation_unit {
             // just let them leak.
 
             v
+        }
+
+        fn cursor() -> cursor {
+            new_cursor(clang::clang_getTranslationUnitCursor(*tu))
         }
     }
 
@@ -286,10 +356,25 @@ fn index(excludeDecls: bool) -> index {
 
 #[cfg(test)]
 mod tests {
+    fn print_children(cursor: cursor) {
+        fn f(cursor: cursor, depth: uint) {
+            let children = cursor.children();
+            vec::iter(children, {|cursor|
+                uint::range(0u, depth, { |_i| print(">") });
+                println(#fmt("> %s", cursor.display_name().to_str()));
+                f(*cursor, depth + 1u);
+            });
+        }
+
+        println(#fmt("%s", cursor.display_name().to_str()));
+        f(cursor, 0u);
+    }
+
     #[test]
     fn test() unsafe {
         let index = index(false);
         let tu = index.parse("foo.c", [], [], 0u);
+
         println("");
         println(#fmt("spelling: %s", tu.spelling().to_str()));
 
@@ -298,5 +383,9 @@ mod tests {
                 inc.included_file.filename().to_str(),
                 inc.location.to_str()));
         });
+
+        let cursor = tu.cursor();
+        println("");
+        print_children(cursor);
     }
 }

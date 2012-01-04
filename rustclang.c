@@ -60,3 +60,55 @@ void rustclang_getExpansionLocation(CXSourceLocation* location,
                                     unsigned *offset) {
   clang_getExpansionLocation(*location, file, line, column, offset);
 }
+
+enum CXCursorKind rustclang_getCursorKind(CXCursor* cursor) {
+  return clang_getCursorKind(*cursor);
+}
+
+CXString rustclang_getCursorSpelling(CXCursor* cursor) {
+  return clang_getCursorSpelling(*cursor);
+}
+
+CXString rustclang_getCursorDisplayName(CXCursor* cursor) {
+  return clang_getCursorDisplayName(*cursor);
+}
+
+typedef struct {
+  CXCursor* children;
+  unsigned len;
+} cursor_children_data;
+
+enum CXChildVisitResult visitCursorChild(CXCursor child,
+                                         CXCursor parent,
+                                         CXClientData client_data) {
+  assert(clang_Cursor_isNull(child) == 0);
+
+  cursor_children_data* data = (cursor_children_data*)client_data;
+  unsigned i = data->len;
+  void* tmp;
+
+  data->len += 1;
+
+  tmp = realloc(data->children, sizeof(CXCursor) * data->len);
+  assert(tmp != NULL);
+  data->children = (CXCursor*)tmp;
+  data->children[i] = child;
+
+  return CXChildVisit_Continue;
+}
+
+void rustclang_visitChildren(CXCursor* parent,
+                             CXCursor** children,
+                             unsigned* len) {
+  cursor_children_data* data =
+    (cursor_children_data*)malloc(sizeof(cursor_children_data));
+  data->children = NULL;
+  data->len = 0;
+
+  clang_visitChildren(*parent, visitCursorChild, data);
+
+  *children = data->children;
+  *len = data->len;
+
+  free(data);
+}
