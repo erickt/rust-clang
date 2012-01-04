@@ -12,7 +12,7 @@ rustclang.o: rustclang.c
 librustclang.a: rustclang.o
 	ar -r $@ $<
 
-ctest: libprint.a
+ctest:
 	gcc -g ${CFLAGS} ${LDFLAGS} test.c
 	DYLD_LIBRARY_PATH=${LIBDIR} ./a.out
 
