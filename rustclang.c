@@ -13,43 +13,44 @@ typedef struct {
 typedef struct {
   file_inclusion* inclusions;
   unsigned len;
-} file_inclusions;
+} file_inclusion_data;
 
 static void getInclusions(CXFile included_file,
                           CXSourceLocation* inclusion_stack,
                           unsigned include_len,
-                          void* data) {
+                          CXClientData client_data) {
   if (include_len != 0) {
-    file_inclusions* inc = (file_inclusions*)data;
-    unsigned i = inc->len;
+    file_inclusion_data* data = (file_inclusion_data*)client_data;
+    unsigned i = data->len;
     void* tmp;
     
-    inc->len += 1;
+    data->len += 1;
 
-    tmp = realloc(inc->inclusions, sizeof(file_inclusion) * inc->len);
+    tmp = realloc(data->inclusions, sizeof(file_inclusion) * data->len);
     assert(tmp != NULL);
-    inc->inclusions = (file_inclusion*)tmp;
+    data->inclusions = (file_inclusion*)tmp;
 
-    inc->inclusions[i].included_file = included_file;
+    data->inclusions[i].included_file = included_file;
     CXSourceLocation* location = inclusion_stack;
-    inc->inclusions[i].location = inclusion_stack[0];
-    inc->inclusions[i].depth = include_len;
+    data->inclusions[i].location = inclusion_stack[0];
+    data->inclusions[i].depth = include_len;
   }
 }
 
 void rustclang_getInclusions(CXTranslationUnit tu,
                              file_inclusion** inclusions,
                              unsigned* len) {
-  file_inclusions* inc = (file_inclusions*)malloc(sizeof(file_inclusions));
-  inc->inclusions = NULL;
-  inc->len = 0;
+  file_inclusion_data* data =
+    (file_inclusion_data*)malloc(sizeof(file_inclusion_data));
+  data->inclusions = NULL;
+  data->len = 0;
 
-  clang_getInclusions(tu, getInclusions, inc);
+  clang_getInclusions(tu, getInclusions, data);
 
-  *inclusions = inc->inclusions;
-  *len = inc->len;
+  *inclusions = data->inclusions;
+  *len = data->len;
 
-  free(inc);
+  free(data);
 }
 
 void rustclang_getExpansionLocation(CXSourceLocation* location,
