@@ -112,3 +112,51 @@ void rustclang_visitChildren(CXCursor* parent,
 
   free(data);
 }
+
+CXType rustclang_getCursorType(CXCursor* cursor) {
+  return clang_getCursorType(*cursor);
+}
+
+CXType rustclang_getCursorResultType(CXCursor* cursor) {
+  return clang_getCursorResultType(*cursor);
+}
+
+CXType rustclang_getCanonicalType(CXType* cursor_type) {
+  return clang_getCanonicalType(*cursor_type);
+}
+
+unsigned rustclang_isConstQualified(CXType* cursor_type) {
+  return clang_isConstQualifiedType(*cursor_type);
+}
+
+unsigned rustclang_isVolatileQualified(CXType* cursor_type) {
+  return clang_isVolatileQualifiedType(*cursor_type);
+}
+
+unsigned rustclang_isRestrictQualified(CXType* cursor_type) {
+  return clang_isRestrictQualifiedType(*cursor_type);
+}
+
+CXType rustclang_getPointeeType(CXType* cursor_type) {
+  return clang_getPointeeType(*cursor_type);
+}
+
+CXCursor rustclang_getTypeDeclaration(CXType* cursor_type) {
+  return clang_getTypeDeclaration(*cursor_type);
+}
+
+CXType rustclang_getResultType(CXType* cursor_type) {
+  return clang_getResultType(*cursor_type);
+}
+
+unsigned rustclang_isPODType(CXType* cursor_type) {
+  return clang_isPODType(*cursor_type);
+}
+
+CXType rustclang_getArrayElementType(CXType* cursor_type) {
+  return clang_getArrayElementType(*cursor_type);
+}
+
+unsigned rustclang_getArraySize(CXType* cursor_type) {
+  return clang_getArraySize(*cursor_type);
+}

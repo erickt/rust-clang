@@ -41,6 +41,8 @@ native mod clang {
     fn clang_isTranslationUnit(kind: ctypes::enum) -> ctypes::unsigned;
     fn clang_isPreprocessing(kind: ctypes::enum) -> ctypes::unsigned;
     fn clang_isUnexposed(kind: ctypes::enum) -> ctypes::unsigned;
+
+    fn clang_getTypeKindSpelling(kind: ctypes::enum) -> CXString;
 }
 
 #[link_args = "-L."]
@@ -63,6 +65,20 @@ native mod rustclang {
     fn rustclang_visitChildren(parent: CXCursor,
                                &children: *CXCursor,
                                &len: ctypes::unsigned);
+
+    fn rustclang_getCursorType(cursor: CXCursor) -> CXType;
+    fn rustclang_getCursorResultType(cursor: CXCursor) -> CXType;
+
+    fn rustclang_getCanonicalType(cursor_type: CXType) -> CXType;
+    fn rustclang_isConstQualified(cursor_type: CXType) -> ctypes::unsigned;
+    fn rustclang_isVolatileQualified(cursor_type: CXType) -> ctypes::unsigned;
+    fn rustclang_isRestrictQualified(cursor_type: CXType) -> ctypes::unsigned;
+    fn rustclang_getPointeeType(cursor_type: CXType) -> CXType;
+    fn rustclang_getTypeDeclaration(cursor_type: CXType) -> CXCursor;
+    fn rustclang_getResultType(cursor_type: CXType) -> CXType;
+    fn rustclang_isPODType(cursor_type: CXType) -> ctypes::unsigned;
+    fn rustclang_getArrayElementType(cursor_type: CXType) -> CXType;
+    fn rustclang_getArraySize(cursor_type: CXType) -> ctypes::longlong;
 }
 
 #[nolink]
@@ -215,6 +231,8 @@ type cursor = obj {
     fn spelling() -> string;
     fn display_name() -> string;
     fn children() -> [cursor_tag];
+    fn cursor_type() -> cursor_type_tag;
+    fn result_type() -> cursor_type_tag;
 };
 
 obj new_cursor(cursor: CXCursor) {
@@ -248,6 +266,16 @@ obj new_cursor(cursor: CXCursor) {
         // just let them leak.
 
         v
+    }
+
+    fn cursor_type() -> cursor_type_tag {
+        let ty = rustclang::rustclang_getCursorType(cursor);
+        cursor_type_tag(new_cursor_type(ty))
+    }
+
+    fn result_type() -> cursor_type_tag {
+        let ty = rustclang::rustclang_getCursorResultType(cursor);
+        cursor_type_tag(new_cursor_type(ty))
     }
 }
 
@@ -482,6 +510,153 @@ obj new_cursor_kind(kind: ctypes::enum) {
 
 // ---------------------------------------------------------------------------
 
+/**
+* Reprents an invalid type (e.g., where no type is available).
+*/
+const CXType_Invalid : uint = 0u;
+
+/**
+* A type whose specific kind is not exposed via this interface.
+*/
+const CXType_Unexposed : uint = 1u;
+
+/* Builtin types */
+const CXType_Void : uint = 2u;
+const CXType_Bool : uint = 3u;
+const CXType_Char_U : uint = 4u;
+const CXType_UChar : uint = 5u;
+const CXType_Char16 : uint = 6u;
+const CXType_Char32 : uint = 7u;
+const CXType_UShort : uint = 8u;
+const CXType_UInt : uint = 9u;
+const CXType_ULong : uint = 10u;
+const CXType_ULongLong : uint = 11u;
+const CXType_UInt128 : uint = 12u;
+const CXType_Char_S : uint = 13u;
+const CXType_SChar : uint = 14u;
+const CXType_WChar : uint = 15u;
+const CXType_Short : uint = 16u;
+const CXType_Int : uint = 17u;
+const CXType_Long : uint = 18u;
+const CXType_LongLong : uint = 19u;
+const CXType_Int128 : uint = 20u;
+const CXType_Float : uint = 21u;
+const CXType_Double : uint = 22u;
+const CXType_LongDouble : uint = 23u;
+const CXType_NullPtr : uint = 24u;
+const CXType_Overload : uint = 25u;
+const CXType_Dependent : uint = 26u;
+const CXType_ObjCId : uint = 27u;
+const CXType_ObjCClass : uint = 28u;
+const CXType_ObjCSel : uint = 29u;
+const CXType_FirstBuiltin : uint = 2u; // CXType_Void;
+const CXType_LastBuiltin : uint = 29u; // CXType_ObjCSel,
+
+const CXType_Complex : uint = 100u;
+const CXType_Pointer : uint = 101u;
+const CXType_BlockPointer : uint = 102u;
+const CXType_LValueReference : uint = 103u;
+const CXType_RValueReference : uint = 104u;
+const CXType_Record : uint = 105u;
+const CXType_Enum : uint = 106u;
+const CXType_Typedef : uint = 107u;
+const CXType_ObjCInterface : uint = 108u;
+const CXType_ObjCObjectPointer : uint = 109u;
+const CXType_FunctionNoProto : uint = 110u;
+const CXType_FunctionProto : uint = 111u;
+const CXType_ConstantArray : uint = 112u;
+
+type cursor_type_kind = obj {
+    fn to_uint() -> uint;
+    fn spelling() -> string;
+};
+
+obj new_cursor_type_kind(kind: ctypes::enum) {
+    fn to_uint() -> uint {
+        kind as uint
+    }
+
+    fn spelling() -> string {
+        new_string(clang::clang_getTypeKindSpelling(kind))
+    }
+}
+
+// ---------------------------------------------------------------------------
+
+type CXType = {
+    kind: ctypes::enum,
+    data0: *ctypes::void,
+    data1: *ctypes::void
+};
+
+type cursor_type = obj {
+    fn kind() -> cursor_type_kind;
+    fn canonical_type() -> cursor_type_tag;
+    fn is_const_qualified() -> bool;
+    fn is_volatile_qualified() -> bool;
+    fn is_restrict_qualified() -> bool;
+    fn pointee_type() -> cursor_type_tag;
+    fn type_declaration() -> cursor;
+    fn result_type() -> cursor_type_tag;
+    fn is_pod_type() -> bool;
+    fn array_element_type() -> cursor_type_tag;
+    fn array_size() -> u64;
+};
+
+tag cursor_type_tag = cursor_type;
+
+obj new_cursor_type(cursor_type: CXType) {
+    fn kind() -> cursor_type_kind {
+        new_cursor_type_kind(cursor_type.kind)
+    }
+
+    fn canonical_type() -> cursor_type_tag {
+        let ty = rustclang::rustclang_getCanonicalType(cursor_type);
+        cursor_type_tag(new_cursor_type(ty))
+    }
+
+    fn is_const_qualified() -> bool {
+        rustclang::rustclang_isConstQualified(cursor_type) != 0 as ctypes::unsigned
+    }
+
+    fn is_volatile_qualified() -> bool {
+        rustclang::rustclang_isVolatileQualified(cursor_type) != 0 as ctypes::unsigned
+    }
+
+    fn is_restrict_qualified() -> bool {
+        rustclang::rustclang_isRestrictQualified(cursor_type) != 0 as ctypes::unsigned
+    }
+
+    fn pointee_type() -> cursor_type_tag {
+        let ty = rustclang::rustclang_getPointeeType(cursor_type);
+        cursor_type_tag(new_cursor_type(ty))
+    }
+
+    fn type_declaration() -> cursor {
+        let cursor = rustclang::rustclang_getTypeDeclaration(cursor_type);
+        new_cursor(cursor)
+    }
+
+    fn result_type() -> cursor_type_tag {
+        cursor_type_tag(new_cursor_type(rustclang::rustclang_getResultType(cursor_type)))
+    }
+
+    fn is_pod_type() -> bool {
+        rustclang::rustclang_isPODType(cursor_type) != 0 as ctypes::unsigned
+    }
+
+    fn array_element_type() -> cursor_type_tag {
+        cursor_type_tag(new_cursor_type(
+            rustclang::rustclang_getArrayElementType(cursor_type)))
+    }
+
+    fn array_size() -> u64 {
+        rustclang::rustclang_getArraySize(cursor_type) as u64
+    }
+}
+
+// ---------------------------------------------------------------------------
+
 type CXTranslationUnit = *ctypes::void;
 
 const CXTranslationUnit_None : uint = 0x0u;
@@ -603,10 +778,11 @@ mod tests {
         fn f(cursor: cursor, depth: uint) {
             if cursor.kind().is_declaration() {
                 uint::range(0u, depth, { |_i| print(">") });
-                println(#fmt("> [%u %s] %s",
+                println(#fmt("> [%u %s] %s <%s>",
                     cursor.kind().to_uint(),
                     cursor.kind().spelling().to_str(),
-                    cursor.display_name().to_str()));
+                    cursor.display_name().to_str(),
+                    cursor.cursor_type().kind().spelling().to_str()));
             }
 
             let children = cursor.children();
