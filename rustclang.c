@@ -65,12 +65,12 @@ enum CXCursorKind rustclang_getCursorKind(CXCursor* cursor) {
   return clang_getCursorKind(*cursor);
 }
 
-CXString rustclang_getCursorSpelling(CXCursor* cursor) {
-  return clang_getCursorSpelling(*cursor);
+void rustclang_getCursorSpelling(CXCursor* cursor, CXString* string) {
+  *string = clang_getCursorSpelling(*cursor);
 }
 
-CXString rustclang_getCursorDisplayName(CXCursor* cursor) {
-  return clang_getCursorDisplayName(*cursor);
+void rustclang_getCursorDisplayName(CXCursor* cursor, CXString* string) {
+  *string = clang_getCursorDisplayName(*cursor);
 }
 
 typedef struct {
@@ -113,50 +113,50 @@ void rustclang_visitChildren(CXCursor* parent,
   free(data);
 }
 
-CXType rustclang_getCursorType(CXCursor* cursor) {
-  return clang_getCursorType(*cursor);
+void rustclang_getCursorType(CXCursor* cursor, CXType* ty) {
+  *ty = clang_getCursorType(*cursor);
 }
 
-CXType rustclang_getCursorResultType(CXCursor* cursor) {
-  return clang_getCursorResultType(*cursor);
+void rustclang_getCursorResultType(CXCursor* cursor, CXType* ty) {
+  *ty = clang_getCursorResultType(*cursor);
 }
 
-CXType rustclang_getCanonicalType(CXType* cursor_type) {
-  return clang_getCanonicalType(*cursor_type);
+void rustclang_getCanonicalType(CXType* in_ty, CXType* out_ty) {
+  *out_ty = clang_getCanonicalType(*in_ty);
 }
 
-unsigned rustclang_isConstQualified(CXType* cursor_type) {
-  return clang_isConstQualifiedType(*cursor_type);
+unsigned rustclang_isConstQualified(CXType* ty) {
+  return clang_isConstQualifiedType(*ty);
 }
 
-unsigned rustclang_isVolatileQualified(CXType* cursor_type) {
-  return clang_isVolatileQualifiedType(*cursor_type);
+unsigned rustclang_isVolatileQualified(CXType* ty) {
+  return clang_isVolatileQualifiedType(*ty);
 }
 
-unsigned rustclang_isRestrictQualified(CXType* cursor_type) {
-  return clang_isRestrictQualifiedType(*cursor_type);
+unsigned rustclang_isRestrictQualified(CXType* ty) {
+  return clang_isRestrictQualifiedType(*ty);
 }
 
-CXType rustclang_getPointeeType(CXType* cursor_type) {
-  return clang_getPointeeType(*cursor_type);
+void rustclang_getPointeeType(CXType* ty, CXType* out_ty) {
+  return clang_getPointeeType(*ty);
 }
 
-CXCursor rustclang_getTypeDeclaration(CXType* cursor_type) {
-  return clang_getTypeDeclaration(*cursor_type);
+void rustclang_getTypeDeclaration(CXType* ty, CXCursor* cursor) {
+  *cursor = clang_getTypeDeclaration(*ty);
 }
 
-CXType rustclang_getResultType(CXType* cursor_type) {
-  return clang_getResultType(*cursor_type);
+void rustclang_getResultType(CXType* in_ty, CXType* out_ty) {
+  *out_ty = clang_getResultType(*in_ty);
 }
 
-unsigned rustclang_isPODType(CXType* cursor_type) {
-  return clang_isPODType(*cursor_type);
+unsigned rustclang_isPODType(CXType* ty) {
+  return clang_isPODType(*ty);
 }
 
-CXType rustclang_getArrayElementType(CXType* cursor_type) {
-  return clang_getArrayElementType(*cursor_type);
+void rustclang_getArrayElementType(CXType* in_ty, CXType* out_ty) {
+  *out_ty = clang_getArrayElementType(*in_ty);
 }
 
-unsigned rustclang_getArraySize(CXType* cursor_type) {
-  return clang_getArraySize(*cursor_type);
+unsigned rustclang_getArraySize(CXType* ty) {
+  return clang_getArraySize(*ty);
 }

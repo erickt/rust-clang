@@ -61,33 +61,28 @@ native mod rustclang {
                                       &column: ctypes::unsigned,
                                       &offset: ctypes::unsigned);
 
-    // Work around bug #1402.
-    fn rustclang_getCursorKind(cursor: CXCursor) -> ctypes::enum;
-    fn rustclang_getCursorSpelling(cursor: CXCursor) -> CXString;
-    fn rustclang_getCursorDisplayName(cursor: CXCursor) -> CXString;
-
     fn rustclang_visitChildren(parent: CXCursor,
                                &children: *CXCursor,
                                &len: ctypes::unsigned);
 
-    fn rustclang_getCursorType(cursor: CXCursor) -> CXType;
-    fn rustclang_getCursorResultType(cursor: CXCursor) -> CXType;
+    // Work around bug #1402.
+    fn rustclang_getCursorKind(cursor: CXCursor) -> ctypes::enum;
+    fn rustclang_getCursorSpelling(cursor: CXCursor, string: CXString);
+    fn rustclang_getCursorDisplayName(cursor: CXCursor, string: CXString);
 
-    fn rustclang_getCanonicalType(cursor_type: CXType) -> CXType;
-    fn rustclang_isConstQualified(cursor_type: CXType) -> ctypes::unsigned;
-    fn rustclang_isVolatileQualified(cursor_type: CXType) -> ctypes::unsigned;
-    fn rustclang_isRestrictQualified(cursor_type: CXType) -> ctypes::unsigned;
-    fn rustclang_getPointeeType(cursor_type: CXType) -> CXType;
-    fn rustclang_getTypeDeclaration(cursor_type: CXType) -> CXCursor;
-    fn rustclang_getResultType(cursor_type: CXType) -> CXType;
-    fn rustclang_isPODType(cursor_type: CXType) -> ctypes::unsigned;
-    fn rustclang_getArrayElementType(cursor_type: CXType) -> CXType;
-    fn rustclang_getArraySize(cursor_type: CXType) -> ctypes::longlong;
-}
+    fn rustclang_getCursorType(cursor: CXCursor, ty: CXType);
+    fn rustclang_getCursorResultType(cursor: CXCursor, ty: CXType);
 
-#[nolink]
-native mod libc {
-    fn free(ptr: *ctypes::void);
+    fn rustclang_getCanonicalType(in_ty: CXType, ty: CXType);
+    fn rustclang_isConstQualified(ty: CXType) -> ctypes::unsigned;
+    fn rustclang_isVolatileQualified(ty: CXType) -> ctypes::unsigned;
+    fn rustclang_isRestrictQualified(ty: CXType) -> ctypes::unsigned;
+    fn rustclang_getPointeeType(in_ty: CXType, out_ty: CXType);
+    fn rustclang_getTypeDeclaration(ty: CXType, cursor: CXCursor);
+    fn rustclang_getResultType(in_ty: CXType, out_ty: CXType);
+    fn rustclang_isPODType(ty: CXType) -> ctypes::unsigned;
+    fn rustclang_getArrayElementType(in_ty: CXType, out_ty: CXType);
+    fn rustclang_getArraySize(ty: CXType) -> ctypes::longlong;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +91,10 @@ type CXString = {
     data: *ctypes::void,
     private_flags: ctypes::unsigned,
 };
+
+fn empty_cxstring() -> CXString {
+    { data: ptr::null(), private_flags: 0u as ctypes::unsigned }
+}
 
 type string = obj {
     fn to_str() -> str;
@@ -224,6 +223,16 @@ type CXCursor = {
     data2: *ctypes::void
 };
 
+fn empty_cxcursor() -> CXCursor {
+    {
+        kind: 0 as ctypes::enum,
+        xdata: 0 as ctypes::c_int,
+        data0: ptr::null(),
+        data1: ptr::null(),
+        data2: ptr::null(),
+    }
+}
+
 // It sure would be nice if rust's objects supported recursive types. In the
 // meantime, break up the recursion by inserting a tag into the chain.
 tag cursor_tag = cursor;
@@ -243,11 +252,15 @@ obj new_cursor(cursor: CXCursor) {
     }
 
     fn spelling() -> string {
-        new_string(rustclang::rustclang_getCursorSpelling(cursor))
+        let string = empty_cxstring();
+        rustclang::rustclang_getCursorSpelling(cursor, string);
+        new_string(string)
     }
 
     fn display_name() -> string {
-        new_string(rustclang::rustclang_getCursorDisplayName(cursor))
+        let string = empty_cxstring();
+        rustclang::rustclang_getCursorDisplayName(cursor, string);
+        new_string(string)
     }
 
     fn children() -> [cursor_tag] unsafe {
@@ -271,12 +284,14 @@ obj new_cursor(cursor: CXCursor) {
     }
 
     fn cursor_type() -> cursor_type_tag {
-        let ty = rustclang::rustclang_getCursorType(cursor);
+        let ty = empty_cxtype();
+        rustclang::rustclang_getCursorType(cursor, ty);
         cursor_type_tag(new_cursor_type(ty))
     }
 
     fn result_type() -> cursor_type_tag {
-        let ty = rustclang::rustclang_getCursorResultType(cursor);
+        let ty = empty_cxtype();
+        rustclang::rustclang_getCursorResultType(cursor, ty);
         cursor_type_tag(new_cursor_type(ty))
     }
 }
@@ -591,6 +606,14 @@ type CXType = {
     data1: *ctypes::void
 };
 
+fn empty_cxtype() -> CXType {
+    {
+        kind: 0 as ctypes::enum,
+        data0: ptr::null(),
+        data1: ptr::null()
+    }
+}
+
 type cursor_type = obj {
     fn kind() -> cursor_type_kind;
     fn canonical_type() -> cursor_type_tag;
@@ -607,53 +630,59 @@ type cursor_type = obj {
 
 tag cursor_type_tag = cursor_type;
 
-obj new_cursor_type(cursor_type: CXType) {
+obj new_cursor_type(ty: CXType) {
     fn kind() -> cursor_type_kind {
-        new_cursor_type_kind(cursor_type.kind)
+        new_cursor_type_kind(ty.kind)
     }
 
     fn canonical_type() -> cursor_type_tag {
-        let ty = rustclang::rustclang_getCanonicalType(cursor_type);
-        cursor_type_tag(new_cursor_type(ty))
+        let out_ty = empty_cxtype();
+        rustclang::rustclang_getCanonicalType(ty, out_ty);
+        cursor_type_tag(new_cursor_type(out_ty))
     }
 
     fn is_const_qualified() -> bool {
-        rustclang::rustclang_isConstQualified(cursor_type) != 0 as ctypes::unsigned
+        rustclang::rustclang_isConstQualified(ty) != 0 as ctypes::unsigned
     }
 
     fn is_volatile_qualified() -> bool {
-        rustclang::rustclang_isVolatileQualified(cursor_type) != 0 as ctypes::unsigned
+        rustclang::rustclang_isVolatileQualified(ty) != 0 as ctypes::unsigned
     }
 
     fn is_restrict_qualified() -> bool {
-        rustclang::rustclang_isRestrictQualified(cursor_type) != 0 as ctypes::unsigned
+        rustclang::rustclang_isRestrictQualified(ty) != 0 as ctypes::unsigned
     }
 
     fn pointee_type() -> cursor_type_tag {
-        let ty = rustclang::rustclang_getPointeeType(cursor_type);
-        cursor_type_tag(new_cursor_type(ty))
+        let out_ty = empty_cxtype();
+        rustclang::rustclang_getPointeeType(ty, out_ty);
+        cursor_type_tag(new_cursor_type(out_ty))
     }
 
     fn type_declaration() -> cursor {
-        let cursor = rustclang::rustclang_getTypeDeclaration(cursor_type);
+        let cursor = empty_cxcursor();
+        rustclang::rustclang_getTypeDeclaration(ty, cursor);
         new_cursor(cursor)
     }
 
     fn result_type() -> cursor_type_tag {
-        cursor_type_tag(new_cursor_type(rustclang::rustclang_getResultType(cursor_type)))
+        let out_ty = empty_cxtype();
+        rustclang::rustclang_getResultType(ty, out_ty);
+        cursor_type_tag(new_cursor_type(out_ty))
     }
 
     fn is_pod_type() -> bool {
-        rustclang::rustclang_isPODType(cursor_type) != 0 as ctypes::unsigned
+        rustclang::rustclang_isPODType(ty) != 0 as ctypes::unsigned
     }
 
     fn array_element_type() -> cursor_type_tag {
-        cursor_type_tag(new_cursor_type(
-            rustclang::rustclang_getArrayElementType(cursor_type)))
+        let out_ty = empty_cxtype();
+        rustclang::rustclang_getArrayElementType(ty, out_ty);
+        cursor_type_tag(new_cursor_type(out_ty))
     }
 
     fn array_size() -> u64 {
-        rustclang::rustclang_getArraySize(cursor_type) as u64
+        rustclang::rustclang_getArraySize(ty) as u64
     }
 }
 
@@ -775,12 +804,14 @@ mod tests {
     fn print_children(cursor: cursor) {
         fn f(cursor: cursor, depth: uint) {
             if cursor.kind().is_declaration() {
+                let ty = cursor.cursor_type();
                 uint::range(0u, depth, { |_i| print(">") });
-                println(#fmt("> [%u %s] %s <%s>",
+                println(#fmt("> [%u %s] %s <%s> <%s>",
                     cursor.kind().to_uint(),
                     cursor.kind().spelling().to_str(),
                     cursor.display_name().to_str(),
-                    cursor.cursor_type().kind().spelling().to_str()));
+                    ty.kind().spelling().to_str(),
+                    ty.canonical_type().kind().spelling().to_str()));
             }
 
             let children = cursor.children();
