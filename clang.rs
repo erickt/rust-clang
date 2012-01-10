@@ -67,6 +67,7 @@ native mod rustclang {
 
     // Work around bug #1402.
     fn rustclang_getCursorKind(cursor: CXCursor) -> ctypes::enum;
+    fn rustclang_getCursorUSR(cursor: CXCursor, string: CXString);
     fn rustclang_getCursorSpelling(cursor: CXCursor, string: CXString);
     fn rustclang_getCursorDisplayName(cursor: CXCursor, string: CXString);
 
@@ -239,6 +240,7 @@ tag cursor_tag = cursor;
 
 type cursor = obj {
     fn kind() -> cursor_kind;
+    fn USR() -> string;
     fn spelling() -> string;
     fn display_name() -> string;
     fn children() -> [cursor_tag];
@@ -249,6 +251,12 @@ type cursor = obj {
 obj new_cursor(cursor: CXCursor) {
     fn kind() -> cursor_kind {
         new_cursor_kind(rustclang::rustclang_getCursorKind(cursor))
+    }
+
+    fn USR() -> string {
+        let string = empty_cxstring();
+        rustclang::rustclang_getCursorUSR(cursor, string);
+        new_string(string)
     }
 
     fn spelling() -> string {

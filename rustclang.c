@@ -65,6 +65,10 @@ enum CXCursorKind rustclang_getCursorKind(CXCursor* cursor) {
   return clang_getCursorKind(*cursor);
 }
 
+void rustclang_getCursorUSR(CXCursor* cursor, CXString* string) {
+  *string = clang_getCursorUSR(*cursor);
+}
+
 void rustclang_getCursorSpelling(CXCursor* cursor, CXString* string) {
   *string = clang_getCursorSpelling(*cursor);
 }
