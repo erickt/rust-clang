@@ -7,6 +7,10 @@ import std::io::{print, println};
 
 #[link_args = "-L ../rust/build-make/llvm/x86_64-apple-darwin/Release+Asserts/lib"]
 native mod clang {
+    type CXIndex;
+    type CXTranslationUnit;
+    type CXFile;
+
     fn clang_getCString(++string: CXString) -> sbuf;
     fn clang_disposeString(++string: CXString);
 
@@ -47,12 +51,12 @@ native mod clang {
 
 #[link_args = "-L."]
 native mod rustclang {
-    fn rustclang_getInclusions(tu: CXTranslationUnit,
+    fn rustclang_getInclusions(tu: clang::CXTranslationUnit,
                                &inclusions: *_file_inclusion,
                                &len: ctypes::unsigned);
 
     fn rustclang_getExpansionLocation(location: CXSourceLocation,
-                                      &file: CXFile,
+                                      &file: clang::CXFile,
                                       &line: ctypes::unsigned,
                                       &column: ctypes::unsigned,
                                       &offset: ctypes::unsigned);
@@ -137,7 +141,7 @@ type source_location = obj {
 // CXSourceLocation wrapper.
 obj new_source_location(location: CXSourceLocation) {
     fn expansion() -> expansion unsafe {
-        let file : CXFile = unsafe::reinterpret_cast(0u);
+        let file = unsafe::reinterpret_cast(0u);
         let line = 0u32;
         let column = 0u32;
         let offset = 0u32;
@@ -168,14 +172,12 @@ obj new_source_location(location: CXSourceLocation) {
 
 // ---------------------------------------------------------------------------
 
-type CXFile = *ctypes::void;
-
 type file = obj {
     fn filename() -> string;
 };
 
 // CXFile wrapper.
-obj new_file(file: CXFile) {
+obj new_file(file: clang::CXFile) {
     fn filename() -> string {
         new_string(clang::clang_getFileName(file))
     }
@@ -193,7 +195,7 @@ type CXUnsavedFile = {
 
 
 type _file_inclusion = {
-    included_file: CXFile,
+    included_file: clang::CXFile,
     location: CXSourceLocation,
     depth: uint
 };
@@ -657,8 +659,6 @@ obj new_cursor_type(cursor_type: CXType) {
 
 // ---------------------------------------------------------------------------
 
-type CXTranslationUnit = *ctypes::void;
-
 const CXTranslationUnit_None : uint = 0x0u;
 const CXTranslationUnit_DetailedPreprocessingRecord : uint = 0x01u;
 const CXTranslationUnit_Incomplete : uint = 0x02u;
@@ -676,8 +676,8 @@ type translation_unit = obj {
 };
 
 // CXTranslationUnit wrapper.
-fn new_translation_unit(tu: CXTranslationUnit) -> translation_unit {
-    resource translation_unit_res(tu: CXTranslationUnit) {
+fn new_translation_unit(tu: clang::CXTranslationUnit) -> translation_unit {
+    resource translation_unit_res(tu: clang::CXTranslationUnit) {
         clang::clang_disposeTranslationUnit(tu);
     }
 
@@ -721,8 +721,6 @@ fn new_translation_unit(tu: CXTranslationUnit) -> translation_unit {
 
 // ---------------------------------------------------------------------------
 
-type CXIndex = *ctypes::void;
-
 type index = obj {
     fn parse(str, [str], [CXUnsavedFile], uint) -> translation_unit;
 };
@@ -734,7 +732,7 @@ fn index(excludeDecls: bool) -> index {
         0 as ctypes::c_int);
 
     // CXIndex wrapper.
-    resource index_res(index: CXIndex) {
+    resource index_res(index: clang::CXIndex) {
         clang::clang_disposeIndex(index);
     }
 
