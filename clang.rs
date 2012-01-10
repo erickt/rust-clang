@@ -814,9 +814,10 @@ mod tests {
             if cursor.kind().is_declaration() {
                 let ty = cursor.cursor_type();
                 uint::range(0u, depth, { |_i| print(">") });
-                println(#fmt("> [%u %s] %s <%s> <%s>",
+                println(#fmt("> [%u %s] <%s> <%s> <%s> <%s>",
                     cursor.kind().to_uint(),
                     cursor.kind().spelling().to_str(),
+                    cursor.spelling().to_str(),
                     cursor.display_name().to_str(),
                     ty.kind().spelling().to_str(),
                     ty.canonical_type().kind().spelling().to_str()));
