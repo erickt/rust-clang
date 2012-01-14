@@ -97,9 +97,9 @@ fn empty_cxstring() -> CXString {
     { data: ptr::null(), private_flags: 0u as ctypes::unsigned }
 }
 
-type string = obj {
+iface string {
     fn to_str() -> str;
-};
+}
 
 // CXString wrapper.
 fn new_string(string: CXString) -> string {
@@ -107,13 +107,13 @@ fn new_string(string: CXString) -> string {
         clang::clang_disposeString(string);
     }
 
-    obj string_obj(string: string_res) {
+    impl of string for string_res {
         fn to_str() -> str unsafe {
-            str::from_cstr(clang::clang_getCString(*string))
+            str::from_cstr(clang::clang_getCString(*self))
         }
     }
 
-    string_obj(string_res(string))
+    string_res(string) as string
 }
 
 // ---------------------------------------------------------------------------
@@ -133,27 +133,27 @@ type expansion = {
     offset: uint,
 };
 
-type source_location = obj {
+iface source_location {
     fn expansion() -> expansion;
     fn to_str() -> str;
-};
+}
 
 // CXSourceLocation wrapper.
-obj new_source_location(location: CXSourceLocation) {
+impl of source_location for CXSourceLocation {
     fn expansion() -> expansion unsafe {
         let file = unsafe::reinterpret_cast(0u);
         let line = 0u32;
         let column = 0u32;
         let offset = 0u32;
 
-        rustclang::rustclang_getExpansionLocation(location,
+        rustclang::rustclang_getExpansionLocation(self,
                 file,
                 line,
                 column,
                 offset);
 
         {
-            file: new_file(file),
+            file: file as file,
             line: line as uint,
             column: column as uint,
             offset: offset as uint,
@@ -172,14 +172,14 @@ obj new_source_location(location: CXSourceLocation) {
 
 // ---------------------------------------------------------------------------
 
-type file = obj {
+iface file {
     fn filename() -> string;
-};
+}
 
 // CXFile wrapper.
-obj new_file(file: clang::CXFile) {
+impl of file for clang::CXFile {
     fn filename() -> string {
-        new_string(clang::clang_getFileName(file))
+        new_string(clang::clang_getFileName(self))
     }
 }
 
@@ -193,7 +193,6 @@ type CXUnsavedFile = {
 
 // ---------------------------------------------------------------------------
 
-
 type _file_inclusion = {
     included_file: clang::CXFile,
     location: CXSourceLocation,
@@ -206,12 +205,13 @@ type file_inclusion = {
     depth: uint
 };
 
-
 // file_inclusion wrapper.
 fn new_file_inclusion(fu: _file_inclusion) -> file_inclusion {
-    let included_file = new_file(fu.included_file);
-    let location = new_source_location(fu.location);
-    { included_file: included_file, location: location, depth: fu.depth }
+    {
+        included_file: fu.included_file as file,
+        location: fu.location as source_location,
+        depth: fu.depth
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -234,56 +234,50 @@ fn empty_cxcursor() -> CXCursor {
     }
 }
 
-// It sure would be nice if rust's objects supported recursive types. In the
-// meantime, break up the recursion by inserting a tag into the chain.
-tag cursor_tag = cursor;
-
-type cursor = obj {
+iface cursor {
     fn kind() -> cursor_kind;
     fn USR() -> string;
     fn spelling() -> string;
     fn display_name() -> string;
-    fn children() -> [cursor_tag];
-    fn cursor_type() -> cursor_type_tag;
-    fn result_type() -> cursor_type_tag;
-};
+    fn children() -> [cursor];
+    fn cursor_type() -> cursor_type;
+    fn result_type() -> cursor_type;
+}
 
-obj new_cursor(cursor: CXCursor) {
+impl of cursor for CXCursor {
     fn kind() -> cursor_kind {
-        new_cursor_kind(rustclang::rustclang_getCursorKind(cursor))
+        rustclang::rustclang_getCursorKind(self) as cursor_kind
     }
 
     fn USR() -> string {
         let string = empty_cxstring();
-        rustclang::rustclang_getCursorUSR(cursor, string);
+        rustclang::rustclang_getCursorUSR(self, string);
         new_string(string)
     }
 
     fn spelling() -> string {
         let string = empty_cxstring();
-        rustclang::rustclang_getCursorSpelling(cursor, string);
+        rustclang::rustclang_getCursorSpelling(self, string);
         new_string(string)
     }
 
     fn display_name() -> string {
         let string = empty_cxstring();
-        rustclang::rustclang_getCursorDisplayName(cursor, string);
+        rustclang::rustclang_getCursorDisplayName(self, string);
         new_string(string)
     }
 
-    fn children() -> [cursor_tag] unsafe {
+    fn children() -> [cursor] unsafe {
         let len = 0u as ctypes::unsigned;
         let children = ptr::null::<CXCursor>();
-        rustclang::rustclang_visitChildren(cursor, children, len);
+        rustclang::rustclang_visitChildren(self, children, len);
         let len = len as uint;
 
-        let cv = c_vec::create(
+        let cv : c_vec::t<CXCursor> = c_vec::create(
             unsafe::reinterpret_cast(children),
             len);
 
-        let v = vec::init_fn({|i|
-            cursor_tag(new_cursor(c_vec::get(cv, i)))
-        }, len);
+        let v = vec::init_fn({|i| c_vec::get(cv, i) as cursor }, len);
 
         // llvm handles cleaning up the inclusions for us, so we can
         // just let them leak.
@@ -291,16 +285,16 @@ obj new_cursor(cursor: CXCursor) {
         v
     }
 
-    fn cursor_type() -> cursor_type_tag {
+    fn cursor_type() -> cursor_type {
         let ty = empty_cxtype();
-        rustclang::rustclang_getCursorType(cursor, ty);
-        cursor_type_tag(new_cursor_type(ty))
+        rustclang::rustclang_getCursorType(self, ty);
+        ty as cursor_type
     }
 
-    fn result_type() -> cursor_type_tag {
+    fn result_type() -> cursor_type {
         let ty = empty_cxtype();
-        rustclang::rustclang_getCursorResultType(cursor, ty);
-        cursor_type_tag(new_cursor_type(ty))
+        rustclang::rustclang_getCursorResultType(self, ty);
+        ty as cursor_type
     }
 }
 
@@ -469,7 +463,7 @@ const CXCursor_InclusionDirective : uint = 503u;
 const CXCursor_FirstPreprocessing : uint = 500u; // CXCursor_PreprocessingDirective;
 const CXCursor_LastPreprocessing : uint = 503u; // CXCursor_InclusionDirective;
 
-type cursor_kind = obj {
+iface cursor_kind {
     fn to_uint() -> uint;
     fn spelling() -> string;
 
@@ -483,49 +477,49 @@ type cursor_kind = obj {
     fn is_preprocessing() -> bool;
     fn is_unexposed() -> bool;
     fn is_exposed() -> bool;
-};
+}
 
-obj new_cursor_kind(kind: ctypes::enum) {
-    fn to_uint() -> uint { kind as uint }
+impl of cursor_kind for ctypes::enum {
+    fn to_uint() -> uint { self as uint }
 
     fn spelling() -> string {
-        new_string(clang::clang_getCursorKindSpelling(kind))
+        new_string(clang::clang_getCursorKindSpelling(self))
     }
 
     fn is_declaration() -> bool {
-        clang::clang_isDeclaration(kind) != 0u as ctypes::unsigned
+        clang::clang_isDeclaration(self) != 0u as ctypes::unsigned
     }
 
     fn is_reference() -> bool {
-        clang::clang_isReference(kind) != 0u as ctypes::unsigned
+        clang::clang_isReference(self) != 0u as ctypes::unsigned
     }
 
     fn is_expression() -> bool {
-        clang::clang_isExpression(kind) != 0u as ctypes::unsigned
+        clang::clang_isExpression(self) != 0u as ctypes::unsigned
     }
 
     fn is_statement() -> bool {
-        clang::clang_isStatement(kind) != 0u as ctypes::unsigned
+        clang::clang_isStatement(self) != 0u as ctypes::unsigned
     }
 
     fn is_attribute() -> bool {
-        clang::clang_isAttribute(kind) != 0u as ctypes::unsigned
+        clang::clang_isAttribute(self) != 0u as ctypes::unsigned
     }
 
     fn is_invalid() -> bool {
-        clang::clang_isInvalid(kind) != 0u as ctypes::unsigned
+        clang::clang_isInvalid(self) != 0u as ctypes::unsigned
     }
 
     fn is_translation_unit() -> bool {
-        clang::clang_isTranslationUnit(kind) != 0u as ctypes::unsigned
+        clang::clang_isTranslationUnit(self) != 0u as ctypes::unsigned
     }
 
     fn is_preprocessing() -> bool {
-        clang::clang_isPreprocessing(kind) != 0u as ctypes::unsigned
+        clang::clang_isPreprocessing(self) != 0u as ctypes::unsigned
     }
 
     fn is_unexposed() -> bool {
-        clang::clang_isUnexposed(kind) != 0u as ctypes::unsigned
+        clang::clang_isUnexposed(self) != 0u as ctypes::unsigned
     }
 
     fn is_exposed() -> bool {
@@ -591,18 +585,18 @@ const CXType_FunctionNoProto : uint = 110u;
 const CXType_FunctionProto : uint = 111u;
 const CXType_ConstantArray : uint = 112u;
 
-type cursor_type_kind = obj {
+iface cursor_type_kind {
     fn to_uint() -> uint;
     fn spelling() -> string;
-};
+}
 
-obj new_cursor_type_kind(kind: ctypes::enum) {
+impl of cursor_type_kind for ctypes::enum {
     fn to_uint() -> uint {
-        kind as uint
+        self as uint
     }
 
     fn spelling() -> string {
-        new_string(clang::clang_getTypeKindSpelling(kind))
+        new_string(clang::clang_getTypeKindSpelling(self))
     }
 }
 
@@ -622,75 +616,74 @@ fn empty_cxtype() -> CXType {
     }
 }
 
-type cursor_type = obj {
+iface cursor_type {
     fn kind() -> cursor_type_kind;
-    fn canonical_type() -> cursor_type_tag;
+    fn canonical_type() -> cursor_type;
     fn is_const_qualified() -> bool;
     fn is_volatile_qualified() -> bool;
     fn is_restrict_qualified() -> bool;
-    fn pointee_type() -> cursor_type_tag;
+    fn pointee_type() -> cursor_type;
     fn type_declaration() -> cursor;
-    fn result_type() -> cursor_type_tag;
+    fn result_type() -> cursor_type;
     fn is_pod_type() -> bool;
-    fn array_element_type() -> cursor_type_tag;
+    fn array_element_type() -> cursor_type;
     fn array_size() -> u64;
-};
+}
 
-tag cursor_type_tag = cursor_type;
 
-obj new_cursor_type(ty: CXType) {
+impl of cursor_type for CXType {
     fn kind() -> cursor_type_kind {
-        new_cursor_type_kind(ty.kind)
+        self.kind as cursor_type_kind
     }
 
-    fn canonical_type() -> cursor_type_tag {
+    fn canonical_type() -> cursor_type {
         let out_ty = empty_cxtype();
-        rustclang::rustclang_getCanonicalType(ty, out_ty);
-        cursor_type_tag(new_cursor_type(out_ty))
+        rustclang::rustclang_getCanonicalType(self, out_ty);
+        out_ty as cursor_type
     }
 
     fn is_const_qualified() -> bool {
-        rustclang::rustclang_isConstQualified(ty) != 0 as ctypes::unsigned
+        rustclang::rustclang_isConstQualified(self) != 0 as ctypes::unsigned
     }
 
     fn is_volatile_qualified() -> bool {
-        rustclang::rustclang_isVolatileQualified(ty) != 0 as ctypes::unsigned
+        rustclang::rustclang_isVolatileQualified(self) != 0 as ctypes::unsigned
     }
 
     fn is_restrict_qualified() -> bool {
-        rustclang::rustclang_isRestrictQualified(ty) != 0 as ctypes::unsigned
+        rustclang::rustclang_isRestrictQualified(self) != 0 as ctypes::unsigned
     }
 
-    fn pointee_type() -> cursor_type_tag {
+    fn pointee_type() -> cursor_type {
         let out_ty = empty_cxtype();
-        rustclang::rustclang_getPointeeType(ty, out_ty);
-        cursor_type_tag(new_cursor_type(out_ty))
+        rustclang::rustclang_getPointeeType(self, out_ty);
+        out_ty as cursor_type
     }
 
     fn type_declaration() -> cursor {
         let cursor = empty_cxcursor();
-        rustclang::rustclang_getTypeDeclaration(ty, cursor);
-        new_cursor(cursor)
+        rustclang::rustclang_getTypeDeclaration(self, cursor);
+        cursor as cursor
     }
 
-    fn result_type() -> cursor_type_tag {
+    fn result_type() -> cursor_type {
         let out_ty = empty_cxtype();
-        rustclang::rustclang_getResultType(ty, out_ty);
-        cursor_type_tag(new_cursor_type(out_ty))
+        rustclang::rustclang_getResultType(self, out_ty);
+        out_ty as cursor_type
     }
 
     fn is_pod_type() -> bool {
-        rustclang::rustclang_isPODType(ty) != 0 as ctypes::unsigned
+        rustclang::rustclang_isPODType(self) != 0 as ctypes::unsigned
     }
 
-    fn array_element_type() -> cursor_type_tag {
+    fn array_element_type() -> cursor_type {
         let out_ty = empty_cxtype();
-        rustclang::rustclang_getArrayElementType(ty, out_ty);
-        cursor_type_tag(new_cursor_type(out_ty))
+        rustclang::rustclang_getArrayElementType(self, out_ty);
+        out_ty as cursor_type
     }
 
     fn array_size() -> u64 {
-        rustclang::rustclang_getArraySize(ty) as u64
+        rustclang::rustclang_getArraySize(self) as u64
     }
 }
 
@@ -706,11 +699,11 @@ const CXTranslationUnit_CXXChainedPCH : uint = 0x20u;
 const CXTranslationUnit_NestedMacroExpansions : uint = 0x40u;
 const CXTranslationUnit_NestedMacroInstantiations : uint = 0x40u;
 
-type translation_unit = obj {
+iface translation_unit {
     fn spelling() -> string;
     fn inclusions() -> [file_inclusion];
     fn cursor() -> cursor;
-};
+}
 
 // CXTranslationUnit wrapper.
 fn new_translation_unit(tu: clang::CXTranslationUnit) -> translation_unit {
@@ -718,9 +711,9 @@ fn new_translation_unit(tu: clang::CXTranslationUnit) -> translation_unit {
         clang::clang_disposeTranslationUnit(tu);
     }
 
-    obj translation_unit_obj(tu: translation_unit_res) {
+    impl of translation_unit for translation_unit_res {
         fn spelling() -> string {
-            new_string(clang::clang_getTranslationUnitSpelling(*tu))
+            new_string(clang::clang_getTranslationUnitSpelling(*self))
         }
 
         fn inclusions() -> [file_inclusion] unsafe {
@@ -731,7 +724,7 @@ fn new_translation_unit(tu: clang::CXTranslationUnit) -> translation_unit {
 
             let len = 0u as ctypes::unsigned;
             let inclusions = ptr::null::<_file_inclusion>();
-            rustclang::rustclang_getInclusions(*tu, inclusions, len);
+            rustclang::rustclang_getInclusions(*self, inclusions, len);
             let len = len as uint;
 
             let cv = c_vec::create(
@@ -749,18 +742,18 @@ fn new_translation_unit(tu: clang::CXTranslationUnit) -> translation_unit {
         }
 
         fn cursor() -> cursor {
-            new_cursor(clang::clang_getTranslationUnitCursor(*tu))
+            clang::clang_getTranslationUnitCursor(*self) as cursor
         }
     }
 
-    translation_unit_obj(translation_unit_res(tu))
+    translation_unit_res(tu) as translation_unit
 }
 
 // ---------------------------------------------------------------------------
 
-type index = obj {
+iface index {
     fn parse(str, [str], [CXUnsavedFile], uint) -> translation_unit;
-};
+}
 
 fn index(excludeDecls: bool) -> index {
     let excludeDeclarationsFromPCH = if excludeDecls { 1 } else { 0 };
@@ -773,7 +766,7 @@ fn index(excludeDecls: bool) -> index {
         clang::clang_disposeIndex(index);
     }
 
-    obj index_obj(index: index_res) {
+    impl of index for index_res {
         fn parse(path: str,
                  args: [str],
                  unsaved_files: [CXUnsavedFile],
@@ -791,7 +784,7 @@ fn index(excludeDecls: bool) -> index {
             let tu =
                 unsafe {
                     clang::clang_parseTranslationUnit(
-                        *index,
+                        *self,
                         str::as_buf(*path, { |buf| buf }),
                         vec::to_ptr(argv),
                         vec::len(argv) as ctypes::c_int,
@@ -804,7 +797,7 @@ fn index(excludeDecls: bool) -> index {
         }
     };
 
-    index_obj(index_res(index))
+    index_res(index) as index
 }
 
 #[cfg(test)]
@@ -824,7 +817,7 @@ mod tests {
             }
 
             let children = cursor.children();
-            vec::iter(children, {|cursor| f(*cursor, depth + 1u); });
+            vec::iter(children, {|cursor| f(cursor, depth + 1u); });
         }
 
         f(cursor, 0u);
