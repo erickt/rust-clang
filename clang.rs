@@ -1,4 +1,5 @@
 use std;
+import ctypes::*;
 import str::sbuf;
 import std::c_vec;
 import std::io::{print, println};
@@ -16,18 +17,18 @@ native mod clang {
 
     fn clang_getFileName(SFile: CXFile) -> CXString;
 
-    fn clang_createIndex(excludeDeclarationsFromPCH: ctypes::c_int,
-                         displayDiagnostics: ctypes::c_int) -> CXIndex;
+    fn clang_createIndex(excludeDeclarationsFromPCH: c_int,
+                         displayDiagnostics: c_int) -> CXIndex;
     fn clang_disposeIndex(index: CXIndex);
 
     fn clang_parseTranslationUnit(
         CIdx: CXIndex,
         source_filename: sbuf,
         command_line_args: *sbuf,
-        num_command_line_args: ctypes::c_int,
+        num_command_line_args: c_int,
         unsaved_files: *CXUnsavedFile,
-        num_unsaved_files: ctypes::unsigned,
-        options: ctypes::unsigned) -> CXTranslationUnit;
+        num_unsaved_files: unsigned,
+        options: unsigned) -> CXTranslationUnit;
 
     fn clang_disposeTranslationUnit(tu: CXTranslationUnit);
 
@@ -35,38 +36,38 @@ native mod clang {
 
     fn clang_getTranslationUnitCursor(tu: CXTranslationUnit) -> CXCursor;
 
-    fn clang_getCursorKindSpelling(kind: ctypes::enum) -> CXString;
-    fn clang_isDeclaration(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isReference(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isExpression(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isStatement(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isAttribute(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isInvalid(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isTranslationUnit(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isPreprocessing(kind: ctypes::enum) -> ctypes::unsigned;
-    fn clang_isUnexposed(kind: ctypes::enum) -> ctypes::unsigned;
+    fn clang_getCursorKindSpelling(kind: enum) -> CXString;
+    fn clang_isDeclaration(kind: enum) -> unsigned;
+    fn clang_isReference(kind: enum) -> unsigned;
+    fn clang_isExpression(kind: enum) -> unsigned;
+    fn clang_isStatement(kind: enum) -> unsigned;
+    fn clang_isAttribute(kind: enum) -> unsigned;
+    fn clang_isInvalid(kind: enum) -> unsigned;
+    fn clang_isTranslationUnit(kind: enum) -> unsigned;
+    fn clang_isPreprocessing(kind: enum) -> unsigned;
+    fn clang_isUnexposed(kind: enum) -> unsigned;
 
-    fn clang_getTypeKindSpelling(kind: ctypes::enum) -> CXString;
+    fn clang_getTypeKindSpelling(kind: enum) -> CXString;
 }
 
 #[link_args = "-L."]
 native mod rustclang {
     fn rustclang_getInclusions(tu: clang::CXTranslationUnit,
                                &inclusions: *_file_inclusion,
-                               &len: ctypes::unsigned);
+                               &len: unsigned);
 
     fn rustclang_getExpansionLocation(location: CXSourceLocation,
                                       &file: clang::CXFile,
-                                      &line: ctypes::unsigned,
-                                      &column: ctypes::unsigned,
-                                      &offset: ctypes::unsigned);
+                                      &line: unsigned,
+                                      &column: unsigned,
+                                      &offset: unsigned);
 
     fn rustclang_visitChildren(parent: CXCursor,
                                &children: *CXCursor,
-                               &len: ctypes::unsigned);
+                               &len: unsigned);
 
     // Work around bug #1402.
-    fn rustclang_getCursorKind(cursor: CXCursor) -> ctypes::enum;
+    fn rustclang_getCursorKind(cursor: CXCursor) -> enum;
     fn rustclang_getCursorUSR(cursor: CXCursor, string: CXString);
     fn rustclang_getCursorSpelling(cursor: CXCursor, string: CXString);
     fn rustclang_getCursorDisplayName(cursor: CXCursor, string: CXString);
@@ -75,26 +76,26 @@ native mod rustclang {
     fn rustclang_getCursorResultType(cursor: CXCursor, ty: CXType);
 
     fn rustclang_getCanonicalType(in_ty: CXType, ty: CXType);
-    fn rustclang_isConstQualified(ty: CXType) -> ctypes::unsigned;
-    fn rustclang_isVolatileQualified(ty: CXType) -> ctypes::unsigned;
-    fn rustclang_isRestrictQualified(ty: CXType) -> ctypes::unsigned;
+    fn rustclang_isConstQualified(ty: CXType) -> unsigned;
+    fn rustclang_isVolatileQualified(ty: CXType) -> unsigned;
+    fn rustclang_isRestrictQualified(ty: CXType) -> unsigned;
     fn rustclang_getPointeeType(in_ty: CXType, out_ty: CXType);
     fn rustclang_getTypeDeclaration(ty: CXType, cursor: CXCursor);
     fn rustclang_getResultType(in_ty: CXType, out_ty: CXType);
-    fn rustclang_isPODType(ty: CXType) -> ctypes::unsigned;
+    fn rustclang_isPODType(ty: CXType) -> unsigned;
     fn rustclang_getArrayElementType(in_ty: CXType, out_ty: CXType);
-    fn rustclang_getArraySize(ty: CXType) -> ctypes::longlong;
+    fn rustclang_getArraySize(ty: CXType) -> longlong;
 }
 
 // ---------------------------------------------------------------------------
 
 type CXString = {
-    data: *ctypes::void,
-    private_flags: ctypes::unsigned,
+    data: *void,
+    private_flags: unsigned,
 };
 
 fn empty_cxstring() -> CXString {
-    { data: ptr::null(), private_flags: 0u as ctypes::unsigned }
+    { data: ptr::null(), private_flags: 0u as unsigned }
 }
 
 iface string {
@@ -121,9 +122,9 @@ fn new_string(string: CXString) -> string {
 type CXSourceLocation = {
     // This should actually be an array of 2 void*, but we can't express that.
     // Hopefully we won't run into alignment issues in the meantime.
-    ptr_data0: *ctypes::void,
-    ptr_data1: *ctypes::void,
-    int_data: ctypes::unsigned,
+    ptr_data0: *void,
+    ptr_data1: *void,
+    int_data: unsigned,
 };
 
 type expansion = {
@@ -188,7 +189,7 @@ impl of file for clang::CXFile {
 type CXUnsavedFile = {
     Filename: sbuf,
     Contents: sbuf,
-    Length: ctypes::ulong
+    Length: ulong
 };
 
 // ---------------------------------------------------------------------------
@@ -217,17 +218,17 @@ fn new_file_inclusion(fu: _file_inclusion) -> file_inclusion {
 // ---------------------------------------------------------------------------
 
 type CXCursor = {
-    kind: ctypes::enum,
-    xdata: ctypes::c_int,
-    data0: *ctypes::void,
-    data1: *ctypes::void,
-    data2: *ctypes::void
+    kind: enum,
+    xdata: c_int,
+    data0: *void,
+    data1: *void,
+    data2: *void
 };
 
 fn empty_cxcursor() -> CXCursor {
     {
-        kind: 0 as ctypes::enum,
-        xdata: 0 as ctypes::c_int,
+        kind: 0 as enum,
+        xdata: 0 as c_int,
         data0: ptr::null(),
         data1: ptr::null(),
         data2: ptr::null(),
@@ -268,7 +269,7 @@ impl of cursor for CXCursor {
     }
 
     fn children() -> [cursor] unsafe {
-        let len = 0u as ctypes::unsigned;
+        let len = 0u as unsigned;
         let children = ptr::null::<CXCursor>();
         rustclang::rustclang_visitChildren(self, children, len);
         let len = len as uint;
@@ -479,7 +480,7 @@ iface cursor_kind {
     fn is_exposed() -> bool;
 }
 
-impl of cursor_kind for ctypes::enum {
+impl of cursor_kind for enum {
     fn to_uint() -> uint { self as uint }
 
     fn spelling() -> string {
@@ -487,39 +488,39 @@ impl of cursor_kind for ctypes::enum {
     }
 
     fn is_declaration() -> bool {
-        clang::clang_isDeclaration(self) != 0u as ctypes::unsigned
+        clang::clang_isDeclaration(self) != 0u as unsigned
     }
 
     fn is_reference() -> bool {
-        clang::clang_isReference(self) != 0u as ctypes::unsigned
+        clang::clang_isReference(self) != 0u as unsigned
     }
 
     fn is_expression() -> bool {
-        clang::clang_isExpression(self) != 0u as ctypes::unsigned
+        clang::clang_isExpression(self) != 0u as unsigned
     }
 
     fn is_statement() -> bool {
-        clang::clang_isStatement(self) != 0u as ctypes::unsigned
+        clang::clang_isStatement(self) != 0u as unsigned
     }
 
     fn is_attribute() -> bool {
-        clang::clang_isAttribute(self) != 0u as ctypes::unsigned
+        clang::clang_isAttribute(self) != 0u as unsigned
     }
 
     fn is_invalid() -> bool {
-        clang::clang_isInvalid(self) != 0u as ctypes::unsigned
+        clang::clang_isInvalid(self) != 0u as unsigned
     }
 
     fn is_translation_unit() -> bool {
-        clang::clang_isTranslationUnit(self) != 0u as ctypes::unsigned
+        clang::clang_isTranslationUnit(self) != 0u as unsigned
     }
 
     fn is_preprocessing() -> bool {
-        clang::clang_isPreprocessing(self) != 0u as ctypes::unsigned
+        clang::clang_isPreprocessing(self) != 0u as unsigned
     }
 
     fn is_unexposed() -> bool {
-        clang::clang_isUnexposed(self) != 0u as ctypes::unsigned
+        clang::clang_isUnexposed(self) != 0u as unsigned
     }
 
     fn is_exposed() -> bool {
@@ -590,7 +591,7 @@ iface cursor_type_kind {
     fn spelling() -> string;
 }
 
-impl of cursor_type_kind for ctypes::enum {
+impl of cursor_type_kind for enum {
     fn to_uint() -> uint {
         self as uint
     }
@@ -603,14 +604,14 @@ impl of cursor_type_kind for ctypes::enum {
 // ---------------------------------------------------------------------------
 
 type CXType = {
-    kind: ctypes::enum,
-    data0: *ctypes::void,
-    data1: *ctypes::void
+    kind: enum,
+    data0: *void,
+    data1: *void
 };
 
 fn empty_cxtype() -> CXType {
     {
-        kind: 0 as ctypes::enum,
+        kind: 0 as enum,
         data0: ptr::null(),
         data1: ptr::null()
     }
@@ -643,15 +644,15 @@ impl of cursor_type for CXType {
     }
 
     fn is_const_qualified() -> bool {
-        rustclang::rustclang_isConstQualified(self) != 0 as ctypes::unsigned
+        rustclang::rustclang_isConstQualified(self) != 0 as unsigned
     }
 
     fn is_volatile_qualified() -> bool {
-        rustclang::rustclang_isVolatileQualified(self) != 0 as ctypes::unsigned
+        rustclang::rustclang_isVolatileQualified(self) != 0 as unsigned
     }
 
     fn is_restrict_qualified() -> bool {
-        rustclang::rustclang_isRestrictQualified(self) != 0 as ctypes::unsigned
+        rustclang::rustclang_isRestrictQualified(self) != 0 as unsigned
     }
 
     fn pointee_type() -> cursor_type {
@@ -673,7 +674,7 @@ impl of cursor_type for CXType {
     }
 
     fn is_pod_type() -> bool {
-        rustclang::rustclang_isPODType(self) != 0 as ctypes::unsigned
+        rustclang::rustclang_isPODType(self) != 0 as unsigned
     }
 
     fn array_element_type() -> cursor_type {
@@ -722,7 +723,7 @@ fn new_translation_unit(tu: clang::CXTranslationUnit) -> translation_unit {
             // Instead we'll make a vector in our stub library and copy the
             // values from it.
 
-            let len = 0u as ctypes::unsigned;
+            let len = 0u as unsigned;
             let inclusions = ptr::null::<_file_inclusion>();
             rustclang::rustclang_getInclusions(*self, inclusions, len);
             let len = len as uint;
@@ -758,8 +759,8 @@ iface index {
 fn index(excludeDecls: bool) -> index {
     let excludeDeclarationsFromPCH = if excludeDecls { 1 } else { 0 };
     let index = clang::clang_createIndex(
-        excludeDeclarationsFromPCH as ctypes::c_int,
-        0 as ctypes::c_int);
+        excludeDeclarationsFromPCH as c_int,
+        0 as c_int);
 
     // CXIndex wrapper.
     resource index_res(index: clang::CXIndex) {
@@ -787,10 +788,10 @@ fn index(excludeDecls: bool) -> index {
                         *self,
                         str::as_buf(*path, { |buf| buf }),
                         vec::to_ptr(argv),
-                        vec::len(argv) as ctypes::c_int,
+                        vec::len(argv) as c_int,
                         vec::to_ptr(unsaved_files),
-                        vec::len(unsaved_files) as ctypes::unsigned,
-                        options as ctypes::unsigned)
+                        vec::len(unsaved_files) as unsigned,
+                        options as unsigned)
                 };
 
             new_translation_unit(tu)
