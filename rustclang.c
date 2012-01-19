@@ -117,12 +117,36 @@ void rustclang_visitChildren(CXCursor* parent,
   free(data);
 }
 
+void rustclang_getTypedefDeclUnderlyingType(CXCursor* cursor, CXType* ty) {
+  *ty = clang_getTypedefDeclUnderlyingType(*cursor);
+}
+
+void rustclang_getEnumDeclIntegerType(CXCursor* cursor, CXType* ty) {
+  *ty = clang_getEnumDeclIntegerType(*cursor);
+}
+
+long long rustclang_getEnumConstantDeclValue(CXCursor* cursor) {
+  return clang_getEnumConstantDeclValue(*cursor);
+}
+
+unsigned long long rustclang_getEnumConstantDeclUnsignedValue(CXCursor* cursor) {
+  return clang_getEnumConstantDeclUnsignedValue(*cursor);
+}
+
 void rustclang_getCursorType(CXCursor* cursor, CXType* ty) {
   *ty = clang_getCursorType(*cursor);
 }
 
 void rustclang_getCursorResultType(CXCursor* cursor, CXType* ty) {
   *ty = clang_getCursorResultType(*cursor);
+}
+
+enum CXAvailabilityKind rustclang_getCursorAvailability(CXCursor* cursor) {
+  return clang_getCursorAvailability(*cursor);
+}
+
+enum CXLanguageKind rustclang_getCursorLanguage(CXCursor* cursor) {
+  return clang_getCursorLanguage(*cursor);
 }
 
 void rustclang_getCanonicalType(CXType* in_ty, CXType* out_ty) {
@@ -142,11 +166,35 @@ unsigned rustclang_isRestrictQualified(CXType* ty) {
 }
 
 void rustclang_getPointeeType(CXType* ty, CXType* out_ty) {
-  return clang_getPointeeType(*ty);
+  *out_ty = clang_getPointeeType(*ty);
 }
 
 void rustclang_getTypeDeclaration(CXType* ty, CXCursor* cursor) {
   *cursor = clang_getTypeDeclaration(*ty);
+}
+
+enum CXCallingConv rustclang_getFunctionTypeCallingConv(CXType* ty) {
+  return clang_getFunctionTypeCallingConv(*ty);
+}
+
+unsigned rustclang_getNumArgTypes(CXType* ty) {
+  return clang_getNumArgTypes(*ty);
+}
+
+void rustclang_getArgType(CXType* in_ty, unsigned i, CXType* out_ty) {
+  *out_ty = clang_getArgType(*in_ty, i);
+}
+
+unsigned rustclang_isFunctionTypeVariadic(CXType* ty) {
+  return clang_isFunctionTypeVariadic(*ty);
+}
+
+void rustclang_getElementType(CXType* ty, CXType* out_ty) {
+  *out_ty = clang_getElementType(*ty);
+}
+
+unsigned rustclang_getNumElements(CXType* ty) {
+  return clang_getNumElements(*ty);
 }
 
 void rustclang_getResultType(CXType* in_ty, CXType* out_ty) {

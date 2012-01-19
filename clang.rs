@@ -72,8 +72,16 @@ native mod rustclang {
     fn rustclang_getCursorSpelling(cursor: CXCursor, string: CXString);
     fn rustclang_getCursorDisplayName(cursor: CXCursor, string: CXString);
 
+    fn rustclang_getTypedefDeclUnderlyingType(cursor: CXCursor, ty: CXType);
+    fn rustclang_getEnumDeclIntegerType(cursor: CXCursor, ty: CXType);
+    fn rustclang_getEnumConstantDeclValue(cursor: CXCursor, value: longlong);
+    fn rustclang_getEnumConstantDeclUnsignedValue(cursor: CXCursor,
+                                          value: ulonglong);
+
     fn rustclang_getCursorType(cursor: CXCursor, ty: CXType);
     fn rustclang_getCursorResultType(cursor: CXCursor, ty: CXType);
+    fn rustclang_getCursorAvailability(cursor: CXCursor) -> enum;
+    fn rustclang_getCursorLanguage(cursor: CXCursor) -> enum;
 
     fn rustclang_getCanonicalType(in_ty: CXType, ty: CXType);
     fn rustclang_isConstQualified(ty: CXType) -> unsigned;
@@ -81,7 +89,14 @@ native mod rustclang {
     fn rustclang_isRestrictQualified(ty: CXType) -> unsigned;
     fn rustclang_getPointeeType(in_ty: CXType, out_ty: CXType);
     fn rustclang_getTypeDeclaration(ty: CXType, cursor: CXCursor);
+    fn rustclang_getFunctionTypeCallingConv(ty: CXType) -> enum;
     fn rustclang_getResultType(in_ty: CXType, out_ty: CXType);
+    fn rustclang_getNumArgTypes(ty: CXType) -> unsigned;
+    fn rustclang_getArgType(in_ty: CXType, i: unsigned, out_ty: CXType);
+    fn rustclang_isFunctionTypeVariadic(ty: CXType) -> unsigned;
+    fn rustclang_getElementType(in_ty: CXType, out_ty: CXType);
+    fn rustclang_getNumElements(ty: CXType) -> longlong;
+
     fn rustclang_isPODType(ty: CXType) -> unsigned;
     fn rustclang_getArrayElementType(in_ty: CXType, out_ty: CXType);
     fn rustclang_getArraySize(ty: CXType) -> longlong;
@@ -241,6 +256,8 @@ iface cursor {
     fn spelling() -> string;
     fn display_name() -> string;
     fn children() -> [cursor];
+    fn typedef_decl_underlying_type() -> cursor_type;
+    fn enum_decl_integer_type() -> cursor_type;
     fn cursor_type() -> cursor_type;
     fn result_type() -> cursor_type;
 }
@@ -284,6 +301,18 @@ impl of cursor for CXCursor {
         // just let them leak.
 
         v
+    }
+
+    fn typedef_decl_underlying_type() -> cursor_type {
+        let ty = empty_cxtype();
+        rustclang::rustclang_getTypedefDeclUnderlyingType(self, ty);
+        ty as cursor_type
+    }
+
+    fn enum_decl_integer_type() -> cursor_type {
+        let ty = empty_cxtype();
+        rustclang::rustclang_getEnumDeclIntegerType(self, ty);
+        ty as cursor_type
     }
 
     fn cursor_type() -> cursor_type {
@@ -454,7 +483,8 @@ const CXCursor_IBOutletCollectionAttr : uint = 403u;
 const CXCursor_CXXFinalAttr : uint = 404u;
 const CXCursor_CXXOverrideAttr : uint = 405u;
 const CXCursor_AnnotateAttr : uint = 406u;
-const CXCursor_LastAttr : uint = 406u; // CXCursor_AnnotateAttr;
+const CXCursor_AsmLabelAttr : uint = 407u;
+const CXCursor_LastAttr : uint = 407u; // CXCursor_AsmLabelAttr;
 
 const CXCursor_PreprocessingDirective : uint = 500u;
 const CXCursor_MacroDefinition : uint = 501u;
@@ -463,6 +493,30 @@ const CXCursor_MacroInstantiation : uint = 502u; // CXCursor_MacroExpansion;
 const CXCursor_InclusionDirective : uint = 503u;
 const CXCursor_FirstPreprocessing : uint = 500u; // CXCursor_PreprocessingDirective;
 const CXCursor_LastPreprocessing : uint = 503u; // CXCursor_InclusionDirective;
+
+/** \brief This value indicates that no linkage information is available
+ * for a provided CXCursor. */
+const CXLinkage_Invalid : uint = 0u;
+/**
+ * \brief This is the linkage for variables, parameters, and so on that
+ *  have automatic storage.  This covers normal (non-extern) local variables.
+ */
+const CXLinkage_NoLinkage : uint = 1u;
+/** \brief This is the linkage for static variables and static functions. */
+const CXLinkage_Internal : uint = 2u;
+/** \brief This is the linkage for entities with external linkage that live
+ * in C++ anonymous namespaces.*/
+const CXLinkage_UniqueExternal : uint = 3u;
+/** \brief This is the linkage for entities with true, external linkage. */
+const CXLinkage_External : uint = 4u;
+
+/**
+ * \brief Describe the "language" of the entity referred to by a cursor.
+ */
+const CXLanguage_Invalid : uint = 0u;
+const CXLanguage_C : uint = 1u;
+const CXLanguage_ObjC : uint = 2u;
+const CXLanguage_CPlusPlus : uint = 3u;
 
 iface cursor_kind {
     fn to_uint() -> uint;
@@ -585,6 +639,19 @@ const CXType_ObjCObjectPointer : uint = 109u;
 const CXType_FunctionNoProto : uint = 110u;
 const CXType_FunctionProto : uint = 111u;
 const CXType_ConstantArray : uint = 112u;
+const CXType_Vector : uint = 113u;
+
+const CXCallingConv_Default : uint = 0u;
+const CXCallingConv_C : uint = 1u;
+const CXCallingConv_X86StdCall : uint = 2u;
+const CXCallingConv_X86FastCall : uint = 3u;
+const CXCallingConv_X86ThisCall : uint = 4u;
+const CXCallingConv_X86Pascal : uint = 5u;
+const CXCallingConv_AAPCS : uint = 6u;
+const CXCallingConv_AAPCS_VFP : uint = 7u;
+
+const CXCallingConv_Invalid : uint = 100u;
+const CXCallingConv_Unexposed : uint = 200u;
 
 iface cursor_type_kind {
     fn to_uint() -> uint;
@@ -756,11 +823,20 @@ iface index {
     fn parse(str, [str], [CXUnsavedFile], uint) -> translation_unit;
 }
 
-fn index(excludeDecls: bool) -> index {
-    let excludeDeclarationsFromPCH = if excludeDecls { 1 } else { 0 };
+fn index(excludeDeclsFromPCH: bool, displayDiagnostics: bool) -> index {
+    let excludeDeclarationsFromPCH = if excludeDeclsFromPCH {
+        1
+    } else {
+        0
+    };
+    let displayDiagnostics = if displayDiagnostics {
+        1
+    } else {
+        0
+    };
     let index = clang::clang_createIndex(
         excludeDeclarationsFromPCH as c_int,
-        0 as c_int);
+        displayDiagnostics as c_int);
 
     // CXIndex wrapper.
     resource index_res(index: clang::CXIndex) {
@@ -804,29 +880,57 @@ fn index(excludeDecls: bool) -> index {
 #[cfg(test)]
 mod tests {
     fn print_children(cursor: cursor) {
-        fn f(cursor: cursor, depth: uint) {
-            if cursor.kind().is_declaration() {
-                let ty = cursor.cursor_type();
+        fn f(cursor: cursor, depth: uint, counter: @mutable uint) {
+            let spelling = cursor.spelling().to_str();
+            let ty = cursor.cursor_type();
+            let kind = cursor.kind();
+
+            if spelling == "" {
+                spelling = #fmt("$%u$", *counter);
+                *counter = *counter + 1u;
+            }
+
+            if kind.is_declaration() {
                 uint::range(0u, depth, { |_i| print(">") });
-                println(#fmt("> [%u %s] <%s> <%s> <%s> <%s>",
-                    cursor.kind().to_uint(),
-                    cursor.kind().spelling().to_str(),
-                    cursor.spelling().to_str(),
-                    cursor.display_name().to_str(),
-                    ty.kind().spelling().to_str(),
-                    ty.canonical_type().kind().spelling().to_str()));
+
+                print(#fmt("> [%s] %s",
+                    kind.spelling().to_str(),
+                    spelling));
+
+                if kind.to_uint() == CXCursor_EnumDecl {
+                    println(#fmt(" : <%s [%s] -> %s>",
+                        ty.kind().spelling().to_str(),
+                        cursor.enum_decl_integer_type().kind().spelling().to_str(),
+                        ty.canonical_type().kind().spelling().to_str()));
+
+                } else if kind.to_uint() == CXCursor_EnumConstantDecl {
+                    println(#fmt(" : <%s -> %s>",
+                        ty.kind().spelling().to_str(),
+                        ty.canonical_type().kind().spelling().to_str()));
+
+                } else if kind.to_uint() == CXCursor_TypedefDecl {
+                    println(#fmt(" : <%s [%s] -> %s>",
+                        ty.kind().spelling().to_str(),
+                        cursor.typedef_decl_underlying_type().kind().spelling().to_str(),
+                        ty.canonical_type().kind().spelling().to_str()));
+
+                } else {
+                    println(#fmt(" : <%s -> %s>",
+                        ty.kind().spelling().to_str(),
+                        ty.canonical_type().kind().spelling().to_str()));
+                }
             }
 
             let children = cursor.children();
-            vec::iter(children, {|cursor| f(cursor, depth + 1u); });
+            vec::iter(children, {|cursor| f(cursor, depth + 1u, counter); });
         }
 
-        f(cursor, 0u);
+        f(cursor, 0u, @mutable 0u);
     }
 
     #[test]
     fn test() unsafe {
-        let index = index(false);
+        let index = index(true, true);
         let tu = index.parse("foo.c", [], [], 0u);
 
         println("");
